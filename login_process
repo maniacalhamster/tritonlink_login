@@ -1,0 +1,89 @@
+Any act.ucsd.edu/ site redirects you to a5.ucsd.edu/tritON/profile/SAML2/Redirect/SSO?
+
+The first redirect sends you there with the following Query Strings
+	- SAMLRequest value: looks like some hash
+	- RelayState value: original site you want to visit
+
+This will automatically redirect you again with different Query Strings
+	- execution value: e?s1
+		- s1: represents the first part of signing on (cred)
+		- e?: starts at 1 and racks up with each unsucesful login
+Filling in credentials on this page fills a POST form to that url with the data
+	- format: 'x-www-form-urlencoded' 
+		- urn:mace:ucsd.edu:sso:username: PID
+		- urn:mace:ucsd.edu:sso:password: password
+		- _eventId_proceed: 
+			- not sure what this is but it pops up a lot lol
+
+This will then redirect again with a different Query String
+	- execution value: e?s2
+		- s2: represents the second part of signing on (duo)
+		- e?: is the same e? in prior redirect
+	Page holds a duo host and ticket for generating a signon session
+		- depends on executing javascript for duo and page will tell u this
+		- however, this can be done manually with the following request
+	Empty POST to https://api-ce13a1a7.duosecurity.com's /frame/web/v1/auth?
+		url with the following Query Strings:
+		- tx: data found within e?s2 content
+			- thinking it might be a duo 'ticket' hash 
+		- parent: e?s2 url encoded (%3A :, %2F /, %3F ?)
+			- encoded so as not to be confused with url
+	This will redirect you to /frame/prompt url with Query String
+		- sid: session ID that's generated from above empty POST
+
+Choosing an authentication method fills a POST form to above given url with data:
+	- 'x-www-form-urlencoded' format
+		- device: phone1
+		- factor: Duo Push
+	When this is done, the chosen device will receive a duo push notification
+	The contents of the response will also hold a txid used in the next post
+
+The next POST request is sent to /frame/status/? with the Query String
+	- sid: saved session ID will go here
+	- 'x-www-form-urlencoded' format for POST form contents:
+		- txid: found in the contents of prior post
+	In the browser, this is sent twice - once to confirm that the txid is 
+	valid, and the second time will be waiting until user selects a choice
+		- response form this request will wait until timeout or user, 
+		with contents holding the appropriate message (fail/success/timeout)
+
+The next POST form request to send goes to /frame/status/<txid>/? with Query String
+	- sid: save session ID will go here
+	- 'x-www-form-urlencoded' format for POST form contents:
+		- txid: saved 'ticket' id goes here
+	Response contents holds 'cookie' which will be used in the followin post
+	under the name 'sig_response'
+
+The next POST form actually sent to original a5.ucsd.edu/tritON...e?s2 that this
+	duo step is supposed to be on, which just takes 2 peices of data
+	- 'x-www-form-urlencoded' format for POST form contents:
+		-_eventId: proceed
+			- again no clue what this is but here it is again lol
+		-sig_response: saved from the prior POST response
+
+Well the contents of that POST is supposed to hold the end product SAMLResponse
+(long ass hash) as well as the RelayState (original site you wanted to visit) 
+The final step would be to send one last POST request to act.ucsd.edu/Shibboleth.sso/SAML2/POST
+with those two 
+
+HOLD UP
+turns out the content of the /frame/status/<txid>/? post response had parent =
+to https://a5.ucsd.edu/tritON/...e?s2= BUT you're sending the next post to =e?s2
+IT WAS JUST THE '=' BEING IN THE WRONG PLACE
+B R U H
+
+Anyways, once you send the POST form to a5.ucsd.edu/tritON...=e?s2 with the data
+		-_eventId: proceed
+		-sig_response: saved from earlier POST reponse
+You'll receive another page telling you it was javascript dependant and contains
+	The RelayState and url to submit the post form but they are both encoded
+		Using &#x<hex>; for :,/,and= characters
+	An SAMLResponse is also listed in the contents, however the size of it
+	is about half of how long it should be, maybe it's encoded or something?
+		I mean it ends in '==' so maybe double base 64 encoding?
+
+OH ok it looks like the SAMLResponse is a base64 encoding of how succesful 
+authentication was and it looks like this whole process wasn't very successful...
+Some lines from the decoded bit read:
+<saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:AuthnFailed"/>
+</saml2p:StatusCode><saml2p:StatusMessage>An error occurred.</saml2p:StatusMessage>
