@@ -1,3 +1,16 @@
+# --------------------------------------------------------------------------------
+#		FLAWED UNDERSTANDING OF LOGIN PROCESS
+#
+# This file was created during my first run through of the login process and served
+# mainly as a way to save progress / run batches of requests at once rather than
+# typing everything out in a python console.
+# Started using workaround about halfway through the requests and ended up with
+# an SAMLResponse encoding Auth Failure
+# A fresh start attempting to abide by the requests sent in browser as closely
+# as possible can be found in the new audit_login.py (that one works!)
+#
+#		FLAWED UNDERSTANDING OF LOGIN PROCESS
+# ---------------------------------------------------------------------------------
 import requests
 import re
 import getpass

@@ -1,3 +1,15 @@
+-------------------------------------------------------------------------------------
+		FLAWED UNDERSTANDING OF THE LOGIN PROCCESS
+
+see audit_login.py comments for more accurate representation of the authentification
+process. This page was created for my first time run through of trying to log in with
+duo and was used mainly as a place to organize my though process. The audit_login.py
+was written from scratch after realizing there were errors somewhere in the current
+process (found out at the very end...).
+
+		FLAWED UNDERSTANDING OF THE LOGIN PROCCESS
+-------------------------------------------------------------------------------------
+
 Any act.ucsd.edu/ site redirects you to a5.ucsd.edu/tritON/profile/SAML2/Redirect/SSO?
 
 The first redirect sends you there with the following Query Strings
@@ -87,3 +99,13 @@ authentication was and it looks like this whole process wasn't very successful..
 Some lines from the decoded bit read:
 <saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:AuthnFailed"/>
 </saml2p:StatusCode><saml2p:StatusMessage>An error occurred.</saml2p:StatusMessage>
+
+Wow, so there were a bunch of mistakes - mostly some cookies not being saved and
+me resorting to workarounds to get to the pages I wanted instead of fixing the 
+issues with cookies. (issues seemed to arise from having incorrect request headers
+- manually setting them in the new audit_login.py file ended up giving the cookies
+needed).
+
+The new file follows the process that browsers go through almost exactly, whereas 
+this process deviates a lot around the part where the POST to duo's prompt and 
+status are sent.
