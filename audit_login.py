@@ -22,14 +22,14 @@ SAMLRequest = re.search('(?<=SAMLRequest=).*(?=&amp;)', resp.content).group(0);
 RelayState_encoded = re.search('(?<=RelayState=).*service', resp.content).group(0);
 
 print('\nGetting: '+RelayState);
-print(cookie+': '+resp.headers[cookie]);
+print('\t>'+cookie+': '+resp.headers[cookie]);
 
 # first redirect takes you to sso page with <samlrequest> & <relaystate> query strings
 # this site will set some cookies <jsessionid>, <randomhash?>, and redirect you again
 sso_saml = login.send(resp.next, allow_redirects=False);
 
 print('\nRedirected to: '+sso_saml.url);
-print(cookie+': '+sso_saml.headers[cookie]);
+print('\t>'+cookie+': '+sso_saml.headers[cookie]);
 
 # second redirect takes you to the part A of signing in (user credentials)
 # page has a POST form to be filled out with user data and sent to itself
@@ -39,15 +39,15 @@ print('\nRedirected to: '+sso_es1.url);
 
 # POST form contents are PID, password, and eventId (not sure what this is for)
 # POST request sent to self will return a redirect to part B of signing in (DUO) 
-login_data = {'urn:mace:ucsd.edu:sso:username':pid, 'urn:mace:ucsd.edu:sso:password':pwd, '_eventId':'proceed'};
+login_data = {'urn:mace:ucsd.edu:sso:username':pid, 'urn:mace:ucsd.edu:sso:password':pwd, '_eventId_proceed':''};
 sso_es2 = login.post(sso_es1.url, data=login_data);
 
 pwd = 'Hidden';
-login_data = {'urn:mace:ucsd.edu:sso:username':pid, 'urn:mace:ucsd.edu:sso:password':pwd, '_eventId':'proceed'};
+login_data = {'urn:mace:ucsd.edu:sso:username':pid, 'urn:mace:ucsd.edu:sso:password':pwd, '_eventId_proceed':''};
 print('\nPosting login data to: '+sso_es1.url);
 print('Data:');
 for dat in login_data:
-	print(dat+':\t'+login_data[dat]);
+	print('\t'+dat+':\t'+login_data[dat]);
 
 print('\nRedirected to: '+sso_es2.url);
 
@@ -57,7 +57,7 @@ data_host = re.search('(?<=data-host=").*com', sso_es2.content).group(0);
 data_sig_request = re.search('(?<=data-sig-request=").*==\|.{40}', sso_es2.content).group(0);
 data_post_action = re.search('(?<=data-post-action=").*e\d+s\d+', sso_es2.content).group(0);
 
-print('Extracted Data: \ndata_host:\t'+data_host+'\ndata_sig_request:\t'+data_sig_request+'\ndata_post_action:\t'+data_post_action);
+print('Extracted Data: \n\tdata_host:\t'+data_host+'\n\tdata_sig_request:\t'+data_sig_request+'\n\tdata_post_action:\t'+data_post_action);
 
 # first, you must complete the duo authentication process, which starts with a
 # POST request to the above host name's /frame/web/v1/auth? site with the
@@ -80,11 +80,11 @@ login.headers['Referer'] = auth_url;
 # and should also set a cookie 
 auth_resp = login.post(auth_url, data=auth_data, allow_redirects=False);
 
-print('\nModifying request headers\nUser-Agent:\t'+login.headers['User-Agent']+'\nReferer:\t'+login.headers['Referer']);
+print('\nModifying request headers\n\tUser-Agent:\t'+login.headers['User-Agent']+'\n\tReferer:\t'+login.headers['Referer']);
 print('\nPosting duo auth data to: '+auth_url);
 print('Data:');
 for dat in auth_data:
-	print(dat+':\t'+auth_data[dat]);
+	print('\t'+dat+':\t'+auth_data[dat]);
 print(cookie+': '+auth_resp.headers[cookie]);
 
 prompt = login.send(auth_resp.next);
@@ -94,15 +94,15 @@ print('\nRedirected to: '+prompt.url);
 # POST request to the prompt_url with the following form data will send a push
 # notification to the listed device (again some data seems extra)
 prompt_url = re.search('.*(?=\?sid)',prompt.url).group(0);
-sid = re.search('(?<=sid=).*',urllib.unquote(prompt.url)).group(0)
-prompt_data = {'sid':sid, 'device':'phone1', 'factor':'Duo Push', 'out_of_data':'',
-		'days_out_of_data':'', 'days_to_block':'None'};
+sid = re.search('(?<=sid=).*',urllib.unquote(prompt.url)).group(0);
+prompt_data = {'sid':sid, 'device':'phone1', 'factor':'Duo Push', 'out_of_date':'',
+		'days_out_of_date':'', 'days_to_block':'None'};
 prompt_resp = login.post(prompt_url, prompt_data);
 
 print('\nPosting prompt data to: '+prompt_url);
 print('Data:');
 for dat in prompt_data:
-	print(dat+':\t'+prompt_data[dat]);
+	print('\t'+dat+':\t'+prompt_data[dat]);
 print('Response: '+prompt_resp.content);
 
 # response to the prompt POST will hold a txid needed for the next POST for status
@@ -116,7 +116,7 @@ status_resp = login.post(status_url, status_data);
 print('\nPosting status data to: '+status_url);
 print('Data:');
 for dat in status_data:
-	print(dat+':\t'+status_data[dat]);
+	print('\t'+dat+':\t'+status_data[dat]);
 print('Response: '+status_resp.content);
 
 # upon user approval on their device, the second status POST response will set 
@@ -125,7 +125,7 @@ status_resp = login.post(status_url, status_data);
 
 print('\nPosting status data for a second time');
 print('Response: '+status_resp.content);
-print(cookie+':\t'+status_resp.headers[cookie]);
+print('\t>'+cookie+':\t'+status_resp.headers[cookie]);
 
 # result_url given in the response of second status post is a lot more work to 
 # parse than just adding the txid to the status url (which it is)
@@ -136,14 +136,14 @@ result_resp = login.post(result_url, result_data);
 print('\nPosting result data to: '+result_url);
 print('Data:');
 for dat in result_data:
-	print(dat+':\t'+result_data[dat]);
+	print('\t'+dat+':\t'+result_data[dat]);
 print('Response: '+result_resp.content);
 
 # request header referer changes back to the original duo page url
 login.headers['Referer'] = sso_es2.url;
 
-print('\nModifying request header\n'+'Referer:\t'+login.headers['Referer']);
-print("Combining result's AUTH portion of sig_response with sso_es2's APP portion...");
+print('\nModifying request header\n\t'+'Referer:\t'+login.headers['Referer']);
+print("\nCombining result's AUTH portion of sig_response with sso_es2's APP portion...");
 
 # The content of this POST to the result url holds the true sig_response needed
 # to finally fill the POST form for part B (DUO) in signing in 
@@ -159,7 +159,7 @@ duo_resp = login.post(duo_url, duo_data);
 print('\nPosting duo data to: '+duo_url);
 print('Data:');
 for dat in duo_data:
-	print(dat+':\t'+duo_data[dat]);
+	print('\t'+dat+':\t'+duo_data[dat]);
 
 # After succesfully completing 2 factor authentication, you are finally given 
 # the SAMLResponse (the long successful one!) and can make the FINAL POST to
@@ -172,10 +172,14 @@ shibboleth_resp = login.post(shibboleth_url, shibboleth_data);
 print('\nPosting shibboleth data to: '+shibboleth_url);
 print('Data:');
 print('\tRelayState:\t'+RelayState);
-print('\tSAMLResponse:\t<'+str(len(SAMLResponse))+'character long entry>');
+print('\tSAMLResponse:\t<'+str(len(SAMLResponse))+' character long entry>');
 
 # The response to the Shibboleth POST shuold redirect you to the original site
 # you wanted to visit and the end result content should be that site
-file=open('studentDarsSelfservice.html', 'w');
+filename = re.search('(?<=edu/).*', RelayState).group(0) + '.html';
+file=open(filename, 'w');
 file.write(shibboleth_resp.content);
 file.close();
+
+print("\nRedirected back to RelayState: "+RelayState);
+print("\tfile saved as " + filename);
