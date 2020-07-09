@@ -1,4 +1,5 @@
 import requests
+import urllib
 import re
 from HTMLParser import HTMLParser;
 from bs4 import BeautifulSoup
@@ -56,26 +57,76 @@ class TritonLink:
     def login(self):
         if (self._loggedin):
             return True;
-        response = self._requests_session.get(self.tritonlink_url);
+        response = self._requests_session.get(self.tritonlink_url, allow_redirects=False);
         student_sso_param = {
-                'initAuthMethod':'urn:mace:ucsd.edu:sso:studentsso',
                 'urn:mace:ucsd.edu:sso:username':self._tritonlink_username,
                 'urn:mace:ucsd.edu:sso:password':self._tritonlink_password,
-                'submit' : 'submit',
-                'urn:mace:ucsd.edu:sso:authmethod': 
-                    'urn:mace:ucsd.edu:sso:studentsso'
+                '_eventId_proceed' : '',
                 }
-        response = self._requests_session.post(response.url,student_sso_param);
-        parser = UCSD_SSO_SAML_Parser();
-        parser.feed(response.text);
-        SAML_response = parser.unescape(parser.SAMLResponse);
-        RelayState = parser.unescape(parser.RelayState);
+
+	# Updated to account for 2 factor authentication with Duo as of 2019/2020 vvvv
+	# 	for more comments/explanations and print statements, take a look
+	#	at tl_login.py! The code here has trimmed out a lot of what was
+	#	found out to be unnecesarry in the authentication process
+
+	while not (re.search('SAMLRequest', response.content)):
+		response = self._requests_session.send(response.next, allow_redirects=False);
+	RelayState = response.url;
+
+	sso_es1 = self._requests_session.send(response.next);
+	sso_es2 = self._requests_session.post(sso_es1.url, data=student_sso_param);
+
+	data_host = re.search('(?<=data-host=").*com', sso_es2.content).group(0);
+	data_sig_request = re.search('(?<=data-sig-request=").*==\|.{40}', sso_es2.content).group(0);
+
+	tx = re.search('TX.*(?=:)', data_sig_request).group(0);
+	parent = urllib.quote_plus(sso_es2.url);
+	auth_url = 'https://'+data_host+'/frame/web/v1/auth?tx='+tx+'&parent='+parent+'&v=2.3';
+
+	auth_data = {'tx':tx, 'parent':sso_es2.url, 'referer':sso_es2.url, 'java_version':'', 'flash_version':'',
+	'screen_resolution_width':'1536', 'screen_resolution_height':'864', 'color_depth':'24',
+	'is_cef_browser':'false', 'is_ipad_os':'false'};
+
+	self._requests_session.headers['User-Agent']='Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/83.0.4103.116';
+	prompt = self._requests_session.post(auth_url, data={});
+
+	prompt_url = re.search('.*(?=\?sid)',prompt.url).group(0);
+	sid = re.search('(?<=sid=).*',urllib.unquote(prompt.url)).group(0);
+	prompt_data = {'sid':sid, 'device':'phone1', 'factor':'Duo Push'};
+	prompt_resp = self._requests_session.post(prompt_url, prompt_data);
+	print(prompt_resp.content);
+
+	status_url = re.search('.*(?=prompt)', prompt_url).group(0) + 'status';
+	txid = re.search('(?<=txid": ").*-.{12}', prompt_resp.content).group(0);
+	status_data = {'sid':sid, 'txid':txid};
+	status_resp = self._requests_session.post(status_url, status_data);
+	print(status_resp.content);
+
+	status_resp = self._requests_session.post(status_url, status_data);
+	print(status_resp.content);
+
+	result_url = status_url + '/' + txid;
+	result_data = {'sid':sid};
+	result_resp = self._requests_session.post(result_url, result_data);
+
+	duo_url = sso_es2.url;
+	sig_response = re.search('AUTH.*==\|.{40}', result_resp.content).group(0);
+	sig_response = sig_response+re.search(':APP.*', data_sig_request).group(0);
+	duo_data = {'_eventId':'proceed', 'sig_response':sig_response};
+	duo_resp = self._requests_session.post(duo_url, duo_data);
+
+	# Not sure how to use HTMLParser, just used regex to find SAMLResponse
+	SAMLResponse = re.search('(?<=SAMLResponse" value=").*(?="/>)', duo_resp.content).group(0);
+
+	# End of changeups to code to account for 2 factor authentication ^^^^^^^^^^^^^
+
         SAML_param = {
                 'RelayState' : RelayState,
-                'SAMLResponse' : SAML_response,
+                'SAMLResponse' : SAMLResponse,
                 }
+
         #update to SAML2, SPRING 2015
-        response = self._requests_session.post(
+        shib_resp = self._requests_session.post(
                 self.ucsd_sso_saml2_url,SAML_param,allow_redirects = False);
         response = self._requests_session.get(RelayState);
         # ::TODO need to check the validity of login
