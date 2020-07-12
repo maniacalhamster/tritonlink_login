@@ -2,7 +2,7 @@
 
 ## Update - July 2020
 This seemed like a pretty cool project but was a tad bit out of date now that everything requires 2 factor authentication. 
-Updated the Student SSO login system to work with Duo push authentication
+Updated to account for the Student SSO login with Duo push authentication
 
 ## Overview
 This is a python library that simulates users' interaction with UCSD TritonLink **Student SSO** login system.
