@@ -1,3 +1,4 @@
 *.pyc
 *.swp
 powershell_testing/login.json
+powershell_testing/audit.html
