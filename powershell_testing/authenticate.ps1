@@ -48,14 +48,14 @@ function decode($inp)
 # Helper function to make POST requests
 function POST($url, $session, $body)
 {
-    Write-Host ("POST to: {0}" -f $url);
+    Write-Host ("POST to:`t{0}" -f $url);
     return Invoke-WebRequest -UseBasicParsing -Uri $url -WebSession $session -Method POST -Body $body; 
 }
 
 # Helper function to make GET requests
 function GET($url, $session)
 {
-    Write-Host ("GET from: {0}" -f $url);
+    Write-Host ("GET from:`t{0}" -f $url);
     return Invoke-WebRequest -UseBasicParsing -Uri $url -WebSession $session;
 }
 
@@ -77,14 +77,17 @@ $audit_resp = Invoke-WebRequest -UseBasicParsing -Uri $audit_url -SessionVariabl
 # Part A of signing in is just a POST form for user login data 
 $auth_one_url = getAbsoluteUri $audit_resp;
 
-if((Get-Host).Version.Major -ne 5){
+if((Get-Host).Version.Major -ne 5)
+{
     $data = get_creds;
 }
-else{
+else
+{
     $data = @{
         'username'=Read-Host("username");
         'password'=Read-Host("password")};
 }
+
 $auth_one_data= @{
     'urn:mace:ucsd.edu:sso:username'=$data.username;
     'urn:mace:ucsd.edu:sso:password'=$data.password;
