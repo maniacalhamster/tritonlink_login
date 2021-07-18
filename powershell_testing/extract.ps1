@@ -43,3 +43,25 @@ $formatted = $rawData | Sort-Object {
             'S[0-9]..' {3};
             'FA..' {4};
         })} | Format-Table -Property Term, Grade, Class, Credits -GroupBy Term;
+
+# Setup another ArrayList of PSCustomObjects for requirements
+$neededCourses = [System.Collections.ArrayList]::new(); 
+
+# Iterate through all needed reqs, accessing title, count, notFrom, and course
+# data via the parent element
+$html.getElementsByClassName("subreqNeeds") | % { 
+    $parent = $_.parentElement;
+    $title = $parent.getElementsByClassName("subreqTitle")[0].innerText; 
+    $count = $parent.getElementsByClassName("count number")[0].innerText;
+    $notFrom = $parent.getElementsByClassName("notcourses")[0].innerText;
+    $courses = $parent.getElementsByClassName("selectcourses")[0].innerText
+        $neededCourses.Add([pscustomobject]@{
+                "title" = $title;
+                "count" = $count;
+                "notFrom" = $notFrom;
+                "courses" = $courses;
+                })
+}
+
+# Additionally format the data to prioritize Courses over NotFrom
+$neededCourses = $neededCourses | Format-Table -Property Title, Count, Courses, NotFrom
